@@ -1,4 +1,4 @@
-## AEC2HTM
+## AES2HTM
 
-aec2htm - ANSI Escape Sequence to HTML converter
+aes2htm - ANSI Escape Sequence to HTML converter
 
