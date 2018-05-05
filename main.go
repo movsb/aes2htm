@@ -169,7 +169,14 @@ func (o *Aec2Htm) Input(r io.Reader) error {
 			}
 		} else {
 			if c < 128 {
-				fmt.Printf("%c", c)
+				switch c {
+				case '<':
+					fmt.Print("&lt;")
+				case '>':
+					fmt.Print("&gt;")
+				default:
+					fmt.Printf("%c", c)
+				}
 				continue
 			}
 
@@ -188,7 +195,9 @@ func (o *Aec2Htm) Input(r io.Reader) error {
 
 func main() {
 	ah := &Aec2Htm{}
+	// fmt.Print("<pre>")
 	err := ah.Input(os.Stdin)
+	// fmt.Print("</pre>")
 	if err != nil {
 		panic(err)
 	}
