@@ -83,6 +83,9 @@ func (o *Aes2Htm) Input(r io.Reader) error {
 						ns = append(ns, n)
 						hasNum = false
 					}
+					if len(ns) == 0 {
+						ns = append(ns, 0)
+					}
 					for _, n := range ns {
 						if n == 0 {
 							bold = false
