@@ -8,15 +8,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"unicode/utf8"
 )
 
-var errParse = errors.New("error while parsing")
-
-type Aec2Htm struct {
+type Aes2Htm struct {
 }
 
-func (o *Aec2Htm) Input(r io.Reader) error {
+func (o *Aes2Htm) Input(r io.Reader) error {
 	var er error
 	var c byte
 
@@ -32,6 +31,8 @@ func (o *Aec2Htm) Input(r io.Reader) error {
 		oldUnderline = false
 		oldFgcolor   = -1
 		oldBgcolor   = -1
+
+		openTags = 0
 	)
 
 	br := bufio.NewReader(r)
@@ -99,21 +100,45 @@ func (o *Aec2Htm) Input(r io.Reader) error {
 							fgcolor = n
 						} else if 40 <= n && n <= 48 {
 							bgcolor = n
+						} else if n == 39 || n == 49 {
+							// Default foreground color
+							// Default background color
+							fgcolor = -1
+							bgcolor = -1
 						} else {
-							return errParse
+							return errors.New(fmt.Sprintf("invalid code: %d", n))
 						}
 					}
 					break
+				} else if c == '?' {
+					// skip
+					for {
+						c, er := br.ReadByte()
+						if er != nil {
+							return errors.New("invalid")
+						}
+						if c >= '0' && c <= '9' {
+							continue
+						} else {
+							break
+						}
+					}
+
+					break
 				} else {
-					return errors.New("invalid terminate")
+					s := fmt.Sprintf("invalid terminate: %c", c)
+					return errors.New(s)
 				}
 			}
 
 			// 如果发生了改变的话
 			if bold != oldBold || italic != oldItalic || underline != oldUnderline || fgcolor != oldFgcolor || bgcolor != oldBgcolor {
 				// 如果原来有，现在没有。则应关闭重新打开，以去掉没有了的属性
-				if oldBold || oldItalic || oldUnderline || oldFgcolor != -1 || oldBgcolor != -1 {
-					fmt.Print("</span>")
+				if oldBold || oldItalic || oldUnderline ||
+					(oldFgcolor != -1 && oldFgcolor != fgcolor) ||
+					(oldBgcolor != -1 && oldBgcolor != bgcolor) {
+					fmt.Print(strings.Repeat("</span>", openTags))
+					openTags = 0
 				}
 				// 重新输出新的属性
 				if bold || italic || underline || fgcolor != -1 || bgcolor != -1 {
@@ -127,45 +152,49 @@ func (o *Aec2Htm) Input(r io.Reader) error {
 					if underline {
 						fmt.Print("text-decoration:underline;")
 					}
-					switch fgcolor - 30 {
-					case 0:
-						fmt.Print("color:black;")
-					case 1:
-						fmt.Print("color:red;")
-					case 2:
-						fmt.Print("color:green;")
-					case 3:
-						fmt.Print("color:yellow;")
-					case 4:
-						fmt.Print("color:blue;")
-					case 5:
-						fmt.Print("color:magenta;")
-					case 6:
-						fmt.Print("color:cyan;")
-					case 7:
-						fmt.Print("color:white;")
+					if fgcolor != oldFgcolor {
+						switch fgcolor - 30 {
+						case 0:
+							fmt.Print("color:black;")
+						case 1:
+							fmt.Print("color:red;")
+						case 2:
+							fmt.Print("color:green;")
+						case 3:
+							fmt.Print("color:yellow;")
+						case 4:
+							fmt.Print("color:blue;")
+						case 5:
+							fmt.Print("color:magenta;")
+						case 6:
+							fmt.Print("color:cyan;")
+						case 7:
+							fmt.Print("color:white;")
+						}
 					}
-					switch bgcolor - 40 {
-					case 0:
-						fmt.Print("background-color:black;")
-					case 1:
-						fmt.Print("background-color:red;")
-					case 2:
-						fmt.Print("background-color:green;")
-					case 3:
-						fmt.Print("background-color:yellow;")
-					case 4:
-						fmt.Print("background-color:blue;")
-					case 5:
-						fmt.Print("background-color:magenta;")
-					case 6:
-						fmt.Print("background-color:cyan;")
-					case 7:
-						fmt.Print("background-color:white;")
+					if bgcolor != oldBgcolor {
+						switch bgcolor - 40 {
+						case 0:
+							fmt.Print("background-color:black;")
+						case 1:
+							fmt.Print("background-color:red;")
+						case 2:
+							fmt.Print("background-color:green;")
+						case 3:
+							fmt.Print("background-color:yellow;")
+						case 4:
+							fmt.Print("background-color:blue;")
+						case 5:
+							fmt.Print("background-color:magenta;")
+						case 6:
+							fmt.Print("background-color:cyan;")
+						case 7:
+							fmt.Print("background-color:white;")
+						}
 					}
 					fmt.Print("\">")
+					openTags++
 				}
-
 			}
 		} else {
 			if c < 128 {
@@ -194,10 +223,19 @@ func (o *Aec2Htm) Input(r io.Reader) error {
 }
 
 func main() {
-	ah := &Aec2Htm{}
-	// fmt.Print("<pre>")
-	err := ah.Input(os.Stdin)
-	// fmt.Print("</pre>")
+	var err error
+	ah := &Aes2Htm{}
+	if len(os.Args) >= 2 {
+		var f *os.File
+		f, err = os.Open(os.Args[1])
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		err = ah.Input(f)
+	} else {
+		err = ah.Input(os.Stdin)
+	}
 	if err != nil {
 		panic(err)
 	}
