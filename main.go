@@ -12,28 +12,125 @@ import (
 	"unicode/utf8"
 )
 
+type State struct {
+	bold      bool
+	italic    bool
+	underline bool
+	fgcolor   int
+	bgcolor   int
+}
+
+func (o *State) Init() {
+	o.bold = false
+	o.italic = false
+	o.underline = false
+	o.fgcolor = -1
+	o.bgcolor = -1
+}
+
+func (o *State) Empty() bool {
+	s := State{}
+	s.Init()
+	return *o == s
+}
+
+func (o *State) AnyChange(s *State) bool {
+	return o.bold != s.bold ||
+		o.italic != s.italic ||
+		o.underline != s.underline ||
+		o.fgcolor != s.fgcolor ||
+		o.bgcolor != s.bgcolor
+}
+
+func (o *State) AnyClose(s *State) bool {
+	if s.bold && !o.bold {
+		return true
+	}
+	if s.italic && !o.italic {
+		return true
+	}
+	if s.underline && !o.underline {
+		return true
+	}
+	if s.fgcolor != -1 && o.fgcolor != s.fgcolor {
+		return true
+	}
+	if s.bgcolor != -1 && o.bgcolor != o.bgcolor {
+		return true
+	}
+	return false
+}
+
+func (o *State) WriteStyles(w io.Writer) error {
+	var err error
+
+	f := func(b bool, s string) {
+		if err == nil && b {
+			_, err = w.Write([]byte(s))
+		}
+	}
+
+	f(o.bold, "font-weight:bold;")
+	f(o.italic, "font-style:italic;")
+	f(o.underline, "text-decoration:underline;")
+
+	switch o.fgcolor - 30 {
+	case 0:
+		f(true, "color:black;")
+	case 1:
+		f(true, "color:red;")
+	case 2:
+		f(true, "color:green;")
+	case 3:
+		f(true, "color:yellow;")
+	case 4:
+		f(true, "color:blue;")
+	case 5:
+		f(true, "color:magenta;")
+	case 6:
+		f(true, "color:cyan;")
+	case 7:
+		f(true, "color:white;")
+	default:
+		panic("bad color")
+	}
+
+	switch o.bgcolor - 40 {
+	case 0:
+		f(true, "background-color:black;")
+	case 1:
+		f(true, "background-color:red;")
+	case 2:
+		f(true, "background-color:green;")
+	case 3:
+		f(true, "background-color:yellow;")
+	case 4:
+		f(true, "background-color:blue;")
+	case 5:
+		f(true, "background-color:magenta;")
+	case 6:
+		f(true, "background-color:cyan;")
+	case 7:
+		panic("bad color")
+	}
+
+	return err
+}
+
 type Aes2Htm struct {
 }
 
-func (o *Aes2Htm) Input(r io.Reader) error {
+func (o *Aes2Htm) Input(w io.Writer, r io.Reader) error {
 	var er error
 	var c byte
 
-	var (
-		bold      = false
-		italic    = false
-		underline = false
-		fgcolor   = -1
-		bgcolor   = -1
+	var openTags = 0
+	var st State
+	var stb State
 
-		oldBold      = false
-		oldItalic    = false
-		oldUnderline = false
-		oldFgcolor   = -1
-		oldBgcolor   = -1
-
-		openTags = 0
-	)
+	out := func(s string) {
+		w.Write([]byte(s))
+	}
 
 	br := bufio.NewReader(r)
 	for {
@@ -46,11 +143,8 @@ func (o *Aes2Htm) Input(r io.Reader) error {
 		}
 
 		if c == '\033' {
-			oldBold = bold
-			oldItalic = italic
-			oldUnderline = underline
-			oldFgcolor = fgcolor
-			oldBgcolor = bgcolor
+			// backup state
+			stb = st
 
 			c, er = br.ReadByte()
 			if er != nil {
@@ -88,26 +182,22 @@ func (o *Aes2Htm) Input(r io.Reader) error {
 					}
 					for _, n := range ns {
 						if n == 0 {
-							bold = false
-							italic = false
-							underline = false
-							fgcolor = -1
-							bgcolor = -1
+							st.Init()
 						} else if n == 1 {
-							bold = true
+							st.bold = true
 						} else if n == 3 {
-							italic = true
+							st.italic = true
 						} else if n == 4 {
-							underline = true
+							st.underline = true
 						} else if 30 <= n && n <= 37 {
-							fgcolor = n
+							st.fgcolor = n
 						} else if 40 <= n && n <= 48 {
-							bgcolor = n
+							st.bgcolor = n
 						} else if n == 39 || n == 49 {
 							// Default foreground color
 							// Default background color
-							fgcolor = -1
-							bgcolor = -1
+							st.fgcolor = -1
+							st.bgcolor = -1
 						} else {
 							return errors.New(fmt.Sprintf("invalid code: %d", n))
 						}
@@ -135,67 +225,17 @@ func (o *Aes2Htm) Input(r io.Reader) error {
 			}
 
 			// 如果发生了改变的话
-			if bold != oldBold || italic != oldItalic || underline != oldUnderline || fgcolor != oldFgcolor || bgcolor != oldBgcolor {
+			if st.AnyChange(&stb) {
 				// 如果原来有，现在没有。则应关闭重新打开，以去掉没有了的属性
-				if oldBold || oldItalic || oldUnderline ||
-					(oldFgcolor != -1 && oldFgcolor != fgcolor) ||
-					(oldBgcolor != -1 && oldBgcolor != bgcolor) {
-					fmt.Print(strings.Repeat("</span>", openTags))
+				if st.AnyClose(&stb) {
+					out(strings.Repeat("</span>", openTags))
 					openTags = 0
 				}
 				// 重新输出新的属性
-				if bold || italic || underline || fgcolor != -1 || bgcolor != -1 {
-					fmt.Print("<span style=\"")
-					if bold {
-						fmt.Print("font-weight:bold;")
-					}
-					if italic {
-						fmt.Print("font-style:italic;")
-					}
-					if underline {
-						fmt.Print("text-decoration:underline;")
-					}
-					if fgcolor != oldFgcolor {
-						switch fgcolor - 30 {
-						case 0:
-							fmt.Print("color:black;")
-						case 1:
-							fmt.Print("color:red;")
-						case 2:
-							fmt.Print("color:green;")
-						case 3:
-							fmt.Print("color:yellow;")
-						case 4:
-							fmt.Print("color:blue;")
-						case 5:
-							fmt.Print("color:magenta;")
-						case 6:
-							fmt.Print("color:cyan;")
-						case 7:
-							fmt.Print("color:white;")
-						}
-					}
-					if bgcolor != oldBgcolor {
-						switch bgcolor - 40 {
-						case 0:
-							fmt.Print("background-color:black;")
-						case 1:
-							fmt.Print("background-color:red;")
-						case 2:
-							fmt.Print("background-color:green;")
-						case 3:
-							fmt.Print("background-color:yellow;")
-						case 4:
-							fmt.Print("background-color:blue;")
-						case 5:
-							fmt.Print("background-color:magenta;")
-						case 6:
-							fmt.Print("background-color:cyan;")
-						case 7:
-							fmt.Print("background-color:white;")
-						}
-					}
-					fmt.Print("\">")
+				if !st.Empty() {
+					out("<span style=\"")
+					st.WriteStyles(w)
+					out("\">")
 					openTags++
 				}
 			}
@@ -203,11 +243,11 @@ func (o *Aes2Htm) Input(r io.Reader) error {
 			if c < 128 {
 				switch c {
 				case '<':
-					fmt.Print("&lt;")
+					out("&lt;")
 				case '>':
-					fmt.Print("&gt;")
+					out("&gt;")
 				default:
-					fmt.Printf("%c", c)
+					out(fmt.Sprintf("%c", c))
 				}
 				continue
 			}
@@ -218,7 +258,7 @@ func (o *Aes2Htm) Input(r io.Reader) error {
 				return errors.New("invalid rune")
 			}
 
-			fmt.Printf("%c", r)
+			out(fmt.Sprintf("%c", r))
 		}
 	}
 
@@ -235,9 +275,9 @@ func main() {
 			panic(err)
 		}
 		defer f.Close()
-		err = ah.Input(f)
+		err = ah.Input(os.Stdout, f)
 	} else {
-		err = ah.Input(os.Stdin)
+		err = ah.Input(os.Stdout, os.Stdin)
 	}
 	if err != nil {
 		panic(err)
