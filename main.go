@@ -12,116 +12,44 @@ import (
 	"unicode/utf8"
 )
 
-type State struct {
-	bold      bool
-	italic    bool
-	underline bool
-	fgcolor   int
-	bgcolor   int
-}
-
-func (o *State) Init() {
-	o.bold = false
-	o.italic = false
-	o.underline = false
-	o.fgcolor = -1
-	o.bgcolor = -1
-}
-
-func (o *State) Empty() bool {
-	s := State{}
-	s.Init()
-	return *o == s
-}
-
-func (o *State) AnyChange(s *State) bool {
-	return o.bold != s.bold ||
-		o.italic != s.italic ||
-		o.underline != s.underline ||
-		o.fgcolor != s.fgcolor ||
-		o.bgcolor != s.bgcolor
-}
-
-func (o *State) AnyClose(s *State) bool {
-	if s.bold && !o.bold {
-		return true
-	}
-	if s.italic && !o.italic {
-		return true
-	}
-	if s.underline && !o.underline {
-		return true
-	}
-	if s.fgcolor != -1 && o.fgcolor != s.fgcolor {
-		return true
-	}
-	if s.bgcolor != -1 && o.bgcolor != s.bgcolor {
-		return true
-	}
-	return false
-}
-
-func (o *State) WriteStyles(w io.Writer, s *State) error {
-	var err error
-
-	f := func(b bool, s string) {
-		if err == nil && b {
-			_, err = w.Write([]byte(s))
-		}
-	}
-
-	f(o.bold, "font-weight:bold;")
-	f(o.italic, "font-style:italic;")
-	f(o.underline, "text-decoration:underline;")
-
-	if o.fgcolor != -1 && o.fgcolor != s.fgcolor {
-		switch o.fgcolor - 30 {
-		case 0:
-			f(true, "color:black;")
-		case 1:
-			f(true, "color:red;")
-		case 2:
-			f(true, "color:green;")
-		case 3:
-			f(true, "color:yellow;")
-		case 4:
-			f(true, "color:blue;")
-		case 5:
-			f(true, "color:magenta;")
-		case 6:
-			f(true, "color:cyan;")
-		case 7:
-			f(true, "color:white;")
-		default:
-			panic("bad fg color: " + fmt.Sprint(o.fgcolor))
-		}
-	}
-
-	if o.bgcolor != -1 && o.bgcolor != s.bgcolor {
-		switch o.bgcolor - 40 {
-		case 0:
-			f(true, "background-color:black;")
-		case 1:
-			f(true, "background-color:red;")
-		case 2:
-			f(true, "background-color:green;")
-		case 3:
-			f(true, "background-color:yellow;")
-		case 4:
-			f(true, "background-color:blue;")
-		case 5:
-			f(true, "background-color:magenta;")
-		case 6:
-			f(true, "background-color:cyan;")
-		case 7:
-			panic("bad bg color: " + fmt.Sprint(o.bgcolor))
-		}
-	}
-
-	return err
-}
-
 type Aes2Htm struct {
+	w   io.Writer
+	br  *bufio.Reader
+	out func(s string)
+}
+
+func NewAes2Htm(w io.Writer, r io.Reader) *Aes2Htm {
+	ah := &Aes2Htm{}
+	ah.w = w
+	ah.br = bufio.NewReader(r)
+	ah.out = func(s string) {
+		ah.w.Write([]byte(s))
+	}
+	return ah
+}
+
+func (o *Aes2Htm) inputPlain(c byte) error {
+	if c < 128 {
+		switch c {
+		case '<':
+			o.out("&lt;")
+		case '>':
+			o.out("&gt;")
+		default:
+			o.out(fmt.Sprintf("%c", c))
+		}
+		return nil
+	}
+
+	o.br.UnreadByte()
+	r, s, er := o.br.ReadRune()
+	if r == utf8.RuneError || s < 1 || er != nil {
+		return errors.New("invalid rune")
+	}
+
+	o.out(fmt.Sprintf("%c", r))
+
+	return nil
 }
 
 func (o *Aes2Htm) Input(w io.Writer, r io.Reader) error {
@@ -134,10 +62,6 @@ func (o *Aes2Htm) Input(w io.Writer, r io.Reader) error {
 
 	st.Init()
 	stb.Init()
-
-	out := func(s string) {
-		w.Write([]byte(s))
-	}
 
 	br := bufio.NewReader(r)
 	for {
@@ -235,37 +159,21 @@ func (o *Aes2Htm) Input(w io.Writer, r io.Reader) error {
 			if st.AnyChange(&stb) {
 				// 如果原来有，现在没有。则应关闭重新打开，以去掉没有了的属性
 				if st.AnyClose(&stb) {
-					out(strings.Repeat("</span>", openTags))
+					o.out(strings.Repeat("</span>", openTags))
 					openTags = 0
 				}
 				// 重新输出新的属性
 				if !st.Empty() {
-					out("<span style=\"")
+					o.out("<span style=\"")
 					st.WriteStyles(w, &stb)
-					out("\">")
+					o.out("\">")
 					openTags++
 				}
 			}
 		} else {
-			if c < 128 {
-				switch c {
-				case '<':
-					out("&lt;")
-				case '>':
-					out("&gt;")
-				default:
-					out(fmt.Sprintf("%c", c))
-				}
-				continue
+			if er = o.inputPlain(c); er != nil {
+				return er
 			}
-
-			br.UnreadByte()
-			r, s, er := br.ReadRune()
-			if r == utf8.RuneError || s < 1 || er != nil {
-				return errors.New("invalid rune")
-			}
-
-			out(fmt.Sprintf("%c", r))
 		}
 	}
 
