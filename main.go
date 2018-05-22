@@ -55,13 +55,13 @@ func (o *State) AnyClose(s *State) bool {
 	if s.fgcolor != -1 && o.fgcolor != s.fgcolor {
 		return true
 	}
-	if s.bgcolor != -1 && o.bgcolor != o.bgcolor {
+	if s.bgcolor != -1 && o.bgcolor != s.bgcolor {
 		return true
 	}
 	return false
 }
 
-func (o *State) WriteStyles(w io.Writer) error {
+func (o *State) WriteStyles(w io.Writer, s *State) error {
 	var err error
 
 	f := func(b bool, s string) {
@@ -74,44 +74,48 @@ func (o *State) WriteStyles(w io.Writer) error {
 	f(o.italic, "font-style:italic;")
 	f(o.underline, "text-decoration:underline;")
 
-	switch o.fgcolor - 30 {
-	case 0:
-		f(true, "color:black;")
-	case 1:
-		f(true, "color:red;")
-	case 2:
-		f(true, "color:green;")
-	case 3:
-		f(true, "color:yellow;")
-	case 4:
-		f(true, "color:blue;")
-	case 5:
-		f(true, "color:magenta;")
-	case 6:
-		f(true, "color:cyan;")
-	case 7:
-		f(true, "color:white;")
-	default:
-		panic("bad color")
+	if o.fgcolor != -1 && o.fgcolor != s.fgcolor {
+		switch o.fgcolor - 30 {
+		case 0:
+			f(true, "color:black;")
+		case 1:
+			f(true, "color:red;")
+		case 2:
+			f(true, "color:green;")
+		case 3:
+			f(true, "color:yellow;")
+		case 4:
+			f(true, "color:blue;")
+		case 5:
+			f(true, "color:magenta;")
+		case 6:
+			f(true, "color:cyan;")
+		case 7:
+			f(true, "color:white;")
+		default:
+			panic("bad fg color: " + fmt.Sprint(o.fgcolor))
+		}
 	}
 
-	switch o.bgcolor - 40 {
-	case 0:
-		f(true, "background-color:black;")
-	case 1:
-		f(true, "background-color:red;")
-	case 2:
-		f(true, "background-color:green;")
-	case 3:
-		f(true, "background-color:yellow;")
-	case 4:
-		f(true, "background-color:blue;")
-	case 5:
-		f(true, "background-color:magenta;")
-	case 6:
-		f(true, "background-color:cyan;")
-	case 7:
-		panic("bad color")
+	if o.bgcolor != -1 && o.bgcolor != s.bgcolor {
+		switch o.bgcolor - 40 {
+		case 0:
+			f(true, "background-color:black;")
+		case 1:
+			f(true, "background-color:red;")
+		case 2:
+			f(true, "background-color:green;")
+		case 3:
+			f(true, "background-color:yellow;")
+		case 4:
+			f(true, "background-color:blue;")
+		case 5:
+			f(true, "background-color:magenta;")
+		case 6:
+			f(true, "background-color:cyan;")
+		case 7:
+			panic("bad bg color: " + fmt.Sprint(o.bgcolor))
+		}
 	}
 
 	return err
@@ -127,6 +131,9 @@ func (o *Aes2Htm) Input(w io.Writer, r io.Reader) error {
 	var openTags = 0
 	var st State
 	var stb State
+
+	st.Init()
+	stb.Init()
 
 	out := func(s string) {
 		w.Write([]byte(s))
@@ -191,7 +198,7 @@ func (o *Aes2Htm) Input(w io.Writer, r io.Reader) error {
 							st.underline = true
 						} else if 30 <= n && n <= 37 {
 							st.fgcolor = n
-						} else if 40 <= n && n <= 48 {
+						} else if 40 <= n && n <= 47 {
 							st.bgcolor = n
 						} else if n == 39 || n == 49 {
 							// Default foreground color
@@ -234,7 +241,7 @@ func (o *Aes2Htm) Input(w io.Writer, r io.Reader) error {
 				// 重新输出新的属性
 				if !st.Empty() {
 					out("<span style=\"")
-					st.WriteStyles(w)
+					st.WriteStyles(w, &stb)
 					out("\">")
 					openTags++
 				}
