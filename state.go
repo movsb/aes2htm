@@ -47,6 +47,7 @@ type State struct {
 	bold      bool
 	italic    bool
 	underline bool
+	blink     bool
 	fgcolor   Color
 	bgcolor   Color
 }
@@ -55,12 +56,13 @@ func (o *State) Init() {
 	o.bold = false
 	o.italic = false
 	o.underline = false
+	o.blink = false
 	o.fgcolor.SetNone()
 	o.bgcolor.SetNone()
 }
 
 func (o *State) Empty() bool {
-	return !o.bold && !o.italic && !o.underline &&
+	return !o.bold && !o.italic && !o.underline && !o.blink &&
 		!o.fgcolor.HasColor() && !o.bgcolor.HasColor()
 }
 
@@ -68,6 +70,7 @@ func (o *State) AnyChange(s *State) bool {
 	return o.bold != s.bold ||
 		o.italic != s.italic ||
 		o.underline != s.underline ||
+		o.blink != s.blink ||
 		!o.fgcolor.Equal(&s.fgcolor) ||
 		!o.bgcolor.Equal(&s.bgcolor)
 }
@@ -80,6 +83,9 @@ func (o *State) AnyClose(s *State) bool {
 		return true
 	}
 	if s.underline && !o.underline {
+		return true
+	}
+	if s.blink && !o.blink {
 		return true
 	}
 	if s.fgcolor.HasColor() && !o.fgcolor.HasColor() {
@@ -111,6 +117,20 @@ func (o *State) WriteStyles(w io.Writer, s *State) error {
 	if o.bgcolor.HasColor() && !o.bgcolor.Equal(&s.bgcolor) {
 		f(true, "background-color:"+o.bgcolor.String()+";")
 	}
+
+	return err
+}
+
+func (o *State) WriteClasses(w io.Writer, s *State) error {
+	var err error
+
+	f := func(b bool, s string) {
+		if err == nil && b {
+			_, err = w.Write([]byte(s))
+		}
+	}
+
+	f(o.blink, "aes2htm-blink")
 
 	return err
 }

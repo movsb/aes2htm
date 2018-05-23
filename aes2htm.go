@@ -111,8 +111,8 @@ func (o *Aes2Htm) handleEscape() error {
 					st.italic = true
 				} else if n == 4 {
 					st.underline = true
-				} else if n == 5 {
-					// TODO blink
+				} else if n == 5 || n == 6 {
+					st.blink = true
 				} else if 30 <= n && n <= 37 {
 					st.fgcolor.SetIndex(n - 30)
 				} else if n == 39 {
@@ -192,6 +192,9 @@ func (o *Aes2Htm) handleEscape() error {
 		if !st.Empty() {
 			o.out("<span style=\"")
 			st.WriteStyles(o.w, &o.stb)
+			o.out("\"")
+			o.out(" class=\"")
+			st.WriteClasses(o.w, &o.stb)
 			o.out("\">")
 			o.openTags++
 		}

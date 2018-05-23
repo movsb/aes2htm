@@ -1,24 +1,39 @@
 package main
 
 import (
+	"fmt"
 	"os"
 )
 
-func main() {
-	var err error
+func render() {
 	ah := NewAes2Htm(os.Stdout)
-	if len(os.Args) >= 2 {
-		var f *os.File
-		f, err = os.Open(os.Args[1])
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-		err = ah.Input(f)
-	} else {
-		err = ah.Input(os.Stdin)
-	}
+	err := ah.Input(os.Stdin)
 	if err != nil {
 		panic(err)
+	}
+}
+
+func main() {
+	tohtml := len(os.Args) == 2 && os.Args[1] == "--html"
+	if tohtml {
+		fmt.Fprint(os.Stdout,
+			`<!doctype html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="aes2htm.css" />
+</head>
+<body>
+<pre>
+`,
+		)
+	}
+	render()
+	if tohtml {
+		fmt.Fprint(os.Stdout,
+			`
+</pre>
+</body>
+</html>
+`)
 	}
 }
