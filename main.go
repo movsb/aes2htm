@@ -176,8 +176,6 @@ func (o *Aes2Htm) Input(w io.Writer, r io.Reader) error {
 			}
 		}
 	}
-
-	return nil
 }
 
 func main() {

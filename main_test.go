@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func Test(t *testing.T) {
+func TestAes2Htm(t *testing.T) {
 	m := make(map[string]string)
 
 	// 无效果
