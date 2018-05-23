@@ -19,22 +19,26 @@ func TestAes2Htm(t *testing.T) {
 	m["123\033[m123"] = "123123"
 
 	// 颜色
-	m["\033[34m123\033[m"] = `<span style="color:blue;">123</span>`
-	m["\033[44m123\033[m"] = `<span style="background-color:blue;">123</span>`
-	m["\033[34m\033[43m123\033[39;49m\033[0m"] = `<span style="color:blue;"><span style="background-color:yellow;">123</span></span>`
+	m["\033[34m111\033[m"] = `<span style="color:` + Palette[4] + `;">111</span>`
+	m["\033[44m222\033[m"] = `<span style="background-color:` + Palette[4] + `;">222</span>`
+	m["\033[34m\033[43m333\033[39;49m\033[0m"] = `<span style="color:` + Palette[4] + `;"><span style="background-color:` + Palette[3] + `;">333</span></span>`
+
+	// m = map[string]string{
+	// 	"\033[34m\033[43m333\033[39;49m\033[0m": `<span style="color:` + Palette[4] + `;"><span style="background-color:` + Palette[3] + `;">333</span></span>`,
+	// }
 
 	for k, v := range m {
-		ah := &Aes2Htm{}
 		sw := bytes.NewBuffer(nil)
+		ah := NewAes2Htm(sw)
 		sr := strings.NewReader(k)
-		er := ah.Input(sw, sr)
+		er := ah.Input(sr)
 		if er != nil {
 			t.Fatal(er)
 		}
 		if sw.String() != v {
 			t.Fatalf("%s -> %s -> %s\n", k, sw.String(), v)
 		} else {
-			t.Logf("Pass: %s -> %s", k, sw.String())
+			// t.Logf("Pass: %s -> %s", k, sw.String())
 		}
 	}
 }
