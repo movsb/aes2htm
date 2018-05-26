@@ -126,8 +126,8 @@ func (o *Aes2Htm) handleEscape() error {
 					if i++; i >= len(ns) {
 						return fmt.Errorf("expect color")
 					}
-					n = ns[i]
-					if n == 5 {
+					switch ns[i] {
+					case 5:
 						if i++; i >= len(ns) {
 							return fmt.Errorf("expect color")
 						}
@@ -137,7 +137,7 @@ func (o *Aes2Htm) handleEscape() error {
 						} else if n == 48 {
 							st.bgcolor.SetIndex(index)
 						}
-					} else if n == 2 {
+					case 2:
 						if i+3 >= len(ns) {
 							return fmt.Errorf("expect color")
 						}
