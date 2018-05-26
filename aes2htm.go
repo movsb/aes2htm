@@ -153,8 +153,8 @@ func (o *Aes2Htm) handleEscape() error {
 					}
 				} else if 90 <= n && n <= 97 {
 					st.fgcolor.SetIndex(n - 90 + 8)
-				} else if 90 <= n && n <= 97 {
-					st.bgcolor.SetIndex(n - 90 + 8)
+				} else if 100 <= n && n <= 107 {
+					st.bgcolor.SetIndex(n - 100 + 8)
 				} else {
 					return fmt.Errorf("invalid code: %d", n)
 				}
@@ -190,12 +190,10 @@ func (o *Aes2Htm) handleEscape() error {
 		}
 		// 重新输出新的属性
 		if !st.Empty() {
-			o.out("<span style=\"")
+			o.out("<span")
 			st.WriteStyles(o.w, &o.stb)
-			o.out("\"")
-			o.out(" class=\"")
 			st.WriteClasses(o.w, &o.stb)
-			o.out("\">")
+			o.out(">")
 			o.openTags++
 		}
 	}

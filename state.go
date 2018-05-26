@@ -106,6 +106,8 @@ func (o *State) WriteStyles(w io.Writer, s *State) error {
 		}
 	}
 
+	f(true, " style=\"")
+
 	f(o.bold, "font-weight:bold;")
 	f(o.italic, "font-style:italic;")
 	f(o.underline, "text-decoration:underline;")
@@ -118,10 +120,16 @@ func (o *State) WriteStyles(w io.Writer, s *State) error {
 		f(true, "background-color:"+o.bgcolor.String()+";")
 	}
 
+	f(true, "\"")
+
 	return err
 }
 
 func (o *State) WriteClasses(w io.Writer, s *State) error {
+	if !o.blink {
+		return nil
+	}
+
 	var err error
 
 	f := func(b bool, s string) {
@@ -130,7 +138,11 @@ func (o *State) WriteClasses(w io.Writer, s *State) error {
 		}
 	}
 
+	f(true, " class=\"")
+
 	f(o.blink, "aes2htm-blink")
+
+	f(true, "\"")
 
 	return err
 }

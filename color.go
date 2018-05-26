@@ -25,7 +25,7 @@ func init() {
 			for b := 0; b < 6; b++ {
 				index := 16 + 36*r + 6*g + b
 				color := steps1[r]<<16 + steps1[g]<<8 + steps1[b]
-				str := fmt.Sprintf("#00%06x", color)
+				str := fmt.Sprintf("#%06x", color)
 				Palette[index] = str
 			}
 		}
@@ -38,6 +38,6 @@ func init() {
 		index := 232 + i
 		color := uint32(8 + i*10)
 		color = color<<16 + color<<8 + color
-		Palette[index] = fmt.Sprintf("#00%06x", color)
+		Palette[index] = fmt.Sprintf("#%06x", color)
 	}
 }
