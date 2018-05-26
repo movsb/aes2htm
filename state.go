@@ -5,34 +5,43 @@ import (
 	"io"
 )
 
+// Color is a struct that represents a color
+// combination that is used by escape sequences
 type Color struct {
-	typ   int // -1: no, 0: index, 1: absolute
-	color uint32
+	typ   int    // -1: no, 0: index, 1: absolute
+	color uint32 // RGB color
 }
 
+// Equal returns true on euqal color
 func (o *Color) Equal(c *Color) bool {
 	return o.typ == -1 && c.typ == -1 ||
 		o.typ == c.typ && o.color == c.color
 }
 
+// HasColor returns true if it has color
 func (o *Color) HasColor() bool {
 	return o.typ != -1
 }
 
+// SetNone sets to no color
 func (o *Color) SetNone() {
 	o.typ = -1
 }
 
+// SetRGB sets color to specified color
 func (o *Color) SetRGB(r, g, b int) {
 	o.typ = 1
 	o.color = uint32((r&0xff)<<16 + (g&0xff)<<8 + (b & 0xff))
 }
 
+// SetIndex sets indexed color
 func (o *Color) SetIndex(i int) {
 	o.typ = 0
 	o.color = uint32(i & 0xff)
 }
 
+// String returns the string representation of color
+// that can be used in CSS style
 func (o *Color) String() string {
 	if o.typ == 0 {
 		return Palette[o.color]
@@ -43,6 +52,7 @@ func (o *Color) String() string {
 	}
 }
 
+// State is the style state machine
 type State struct {
 	bold      bool
 	italic    bool
@@ -52,6 +62,7 @@ type State struct {
 	bgcolor   Color
 }
 
+// Init inits
 func (o *State) Init() {
 	o.bold = false
 	o.italic = false
@@ -61,11 +72,14 @@ func (o *State) Init() {
 	o.bgcolor.SetNone()
 }
 
+// Empty returns true if the state is empty
 func (o *State) Empty() bool {
 	return !o.bold && !o.italic && !o.underline && !o.blink &&
 		!o.fgcolor.HasColor() && !o.bgcolor.HasColor()
 }
 
+// AnyChange compares to a backup state
+// and returns true if there is at least one change made
 func (o *State) AnyChange(s *State) bool {
 	return o.bold != s.bold ||
 		o.italic != s.italic ||
@@ -75,6 +89,7 @@ func (o *State) AnyChange(s *State) bool {
 		!o.bgcolor.Equal(&s.bgcolor)
 }
 
+// AnyClose returns true if at least one attribute has closed
 func (o *State) AnyClose(s *State) bool {
 	if s.bold && !o.bold {
 		return true
@@ -97,6 +112,7 @@ func (o *State) AnyClose(s *State) bool {
 	return false
 }
 
+// WriteStyles outputs the current styles
 func (o *State) WriteStyles(w io.Writer, s *State) error {
 	var err error
 
@@ -125,6 +141,7 @@ func (o *State) WriteStyles(w io.Writer, s *State) error {
 	return err
 }
 
+// WriteClasses outputs css classes if needed
 func (o *State) WriteClasses(w io.Writer, s *State) error {
 	if !o.blink {
 		return nil

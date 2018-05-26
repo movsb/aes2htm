@@ -11,15 +11,18 @@ import (
 	"unicode/utf8"
 )
 
+// Aes2Htm is the main struct of Converting from
+// ANSI escape sequences to HTML
 type Aes2Htm struct {
-	w        io.Writer
-	br       *bufio.Reader
-	out      func(s string)
-	st       State
-	stb      State
-	openTags int
+	w        io.Writer      // where to write html content
+	br       *bufio.Reader  // buffered reader wrapper for input
+	out      func(s string) // wrapper for write
+	st       State          // current attribute state
+	stb      State          // backup attribute state
+	openTags int            // open tags count
 }
 
+// NewAes2Htm creates a new Aes2Htm struct
 func NewAes2Htm(w io.Writer) *Aes2Htm {
 	ah := &Aes2Htm{}
 	ah.w = w
@@ -31,6 +34,8 @@ func NewAes2Htm(w io.Writer) *Aes2Htm {
 	return ah
 }
 
+// inputPlain consumes plain utf8 characteres
+// and do html escape when needed
 func (o *Aes2Htm) inputPlain(c byte) error {
 	if c < 128 {
 		switch c {
@@ -55,6 +60,7 @@ func (o *Aes2Htm) inputPlain(c byte) error {
 	return nil
 }
 
+// handleCSI handles `\033[` sequence
 func (o *Aes2Htm) handleCSI() error {
 	var er error
 	var c byte
@@ -168,34 +174,22 @@ func (o *Aes2Htm) handleCSI() error {
 					break
 				}
 			}
-
-			break
-		} else if c == 'r' { // Set Scrolling Region [top;bottom]
-			break
-		} else if c == 'l' { // Reset Mode
-			break
-		} else if c == 'H' { // Cursor Position
-			break
-		} else if c == 'J' { // Erase in Display
-			break
-		} else if c == 'd' { // Line Position Absolute
-			break
-		} else if c == 'X' { // Erase Characters
 			break
 		} else {
-			s := fmt.Sprintf("invalid terminate: %c", c)
+			s := fmt.Sprintf("invalid terminate: %v %c", ns, c)
 			return errors.New(s)
 		}
 	}
 
-	// 如果发生了改变的话
+	// if some changes have been made
 	if st.AnyChange(&o.stb) {
-		// 如果原来有，现在没有。则应关闭重新打开，以去掉没有了的属性
+		// some attribute is closed
 		if st.AnyClose(&o.stb) {
 			o.out(strings.Repeat("</span>", o.openTags))
 			o.openTags = 0
 		}
-		// 重新输出新的属性
+
+		// re-open attribute output
 		if !st.Empty() {
 			o.out("<span")
 			st.WriteStyles(o.w, &o.stb)
@@ -208,10 +202,7 @@ func (o *Aes2Htm) handleCSI() error {
 	return nil
 }
 
-func (o *Aes2Htm) handleLeftParentheses() error {
-	return nil
-}
-
+// Input does input processing
 func (o *Aes2Htm) Input(r io.Reader) error {
 	var er error
 	var c byte
@@ -243,12 +234,6 @@ func (o *Aes2Htm) Input(r io.Reader) error {
 				if er = o.handleCSI(); er != nil {
 					return er
 				}
-			case '(':
-				if er = o.handleLeftParentheses(); er != nil {
-					return er
-				}
-			case '=': // Application Keypad
-				break
 			default:
 				return fmt.Errorf("unhandled char after escape: %c", c)
 			}
