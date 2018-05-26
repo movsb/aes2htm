@@ -55,7 +55,7 @@ func (o *Aes2Htm) inputPlain(c byte) error {
 	return nil
 }
 
-func (o *Aes2Htm) handleEscape() error {
+func (o *Aes2Htm) handleCSI() error {
 	var er error
 	var c byte
 
@@ -63,11 +63,6 @@ func (o *Aes2Htm) handleEscape() error {
 	o.stb = o.st
 
 	st := &o.st
-
-	c, er = o.br.ReadByte()
-	if er != nil {
-		return er
-	}
 
 	hasNum := false
 	n := 0
@@ -175,6 +170,18 @@ func (o *Aes2Htm) handleEscape() error {
 			}
 
 			break
+		} else if c == 'r' { // Set Scrolling Region [top;bottom]
+			break
+		} else if c == 'l' { // Reset Mode
+			break
+		} else if c == 'H' { // Cursor Position
+			break
+		} else if c == 'J' { // Erase in Display
+			break
+		} else if c == 'd' { // Line Position Absolute
+			break
+		} else if c == 'X' { // Erase Characters
+			break
 		} else {
 			s := fmt.Sprintf("invalid terminate: %c", c)
 			return errors.New(s)
@@ -201,6 +208,10 @@ func (o *Aes2Htm) handleEscape() error {
 	return nil
 }
 
+func (o *Aes2Htm) handleLeftParentheses() error {
+	return nil
+}
+
 func (o *Aes2Htm) Input(r io.Reader) error {
 	var er error
 	var c byte
@@ -223,8 +234,23 @@ func (o *Aes2Htm) Input(r io.Reader) error {
 		}
 
 		if c == '\033' {
-			if er = o.handleEscape(); er != nil {
+			c, er = br.ReadByte()
+			if er != nil {
 				return er
+			}
+			switch c {
+			case '[':
+				if er = o.handleCSI(); er != nil {
+					return er
+				}
+			case '(':
+				if er = o.handleLeftParentheses(); er != nil {
+					return er
+				}
+			case '=': // Application Keypad
+				break
+			default:
+				return fmt.Errorf("unhandled char after escape: %c", c)
 			}
 		} else {
 			if er = o.inputPlain(c); er != nil {
