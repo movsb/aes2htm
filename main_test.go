@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/romiras/aes2htm/pkg"
 )
 
 func TestAes2Htm(t *testing.T) {
@@ -19,9 +21,9 @@ func TestAes2Htm(t *testing.T) {
 	m["123\033[m123"] = "123123"
 
 	// 颜色
-	m["\033[34m111\033[m"] = `<span style="color:` + Palette[4] + `;">111</span>`
-	m["\033[44m222\033[m"] = `<span style="background-color:` + Palette[4] + `;">222</span>`
-	m["\033[34m\033[43m333\033[39;49m\033[0m"] = `<span style="color:` + Palette[4] + `;"><span style="background-color:` + Palette[3] + `;">333</span></span>`
+	m["\033[34m111\033[m"] = `<span style="color:` + pkg.Palette[4] + `;">111</span>`
+	m["\033[44m222\033[m"] = `<span style="background-color:` + pkg.Palette[4] + `;">222</span>`
+	m["\033[34m\033[43m333\033[39;49m\033[0m"] = `<span style="color:` + pkg.Palette[4] + `;"><span style="background-color:` + pkg.Palette[3] + `;">333</span></span>`
 
 	// m = map[string]string{
 	// 	"\033[34m\033[43m333\033[39;49m\033[0m": `<span style="color:` + Palette[4] + `;"><span style="background-color:` + Palette[3] + `;">333</span></span>`,
@@ -29,7 +31,11 @@ func TestAes2Htm(t *testing.T) {
 
 	for k, v := range m {
 		sw := bytes.NewBuffer(nil)
-		ah := NewAes2Htm(sw)
+		ah, err := pkg.NewAes2Htm(sw)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		sr := strings.NewReader(k)
 		er := ah.Input(sr)
 		if er != nil {
@@ -37,7 +43,7 @@ func TestAes2Htm(t *testing.T) {
 		}
 		if sw.String() != v {
 			t.Fatalf("%s -> %s -> %s\n", k, sw.String(), v)
-		} else {
+			// } else {
 			// t.Logf("Pass: %s -> %s", k, sw.String())
 		}
 	}

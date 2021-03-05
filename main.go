@@ -1,39 +1,29 @@
 package main
 
 import (
-	"fmt"
+	"io"
+	"log"
 	"os"
-)
 
-func render() {
-	ah := NewAes2Htm(os.Stdout)
-	err := ah.Input(os.Stdin)
-	if err != nil {
-		panic(err)
-	}
-}
+	"github.com/romiras/aes2htm/pkg"
+)
 
 func main() {
 	tohtml := len(os.Args) == 2 && os.Args[1] == "--html"
 	if tohtml {
-		fmt.Fprint(os.Stdout,
-			`<!doctype html>
-<head>
-<meta charset="utf-8" />
-<link rel="stylesheet" href="aes2htm.css" />
-</head>
-<body>
-<pre>
-`,
-		)
-	}
-	render()
-	if tohtml {
-		fmt.Fprint(os.Stdout,
-			`
-</pre>
-</body>
-</html>
-`)
+		ah, err := pkg.NewAes2Htm(os.Stdout)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		err = ah.WriteHTML(os.Stdin)
+		if err != nil {
+			log.Fatalln(err)
+		}
+	} else {
+		_, err := io.Copy(os.Stdout, os.Stdin)
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 }

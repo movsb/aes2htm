@@ -1,6 +1,6 @@
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 
-package main
+package pkg
 
 import (
 	"bufio"
@@ -9,6 +9,23 @@ import (
 	"io"
 	"strings"
 	"unicode/utf8"
+)
+
+const (
+	HtmlBegin = `<!doctype html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="aes2htm.css" />
+</head>
+<body>
+<pre>
+`
+
+	HtmlEnd = `
+</pre>
+</body>
+</html>
+`
 )
 
 // Aes2Htm is the main struct of Converting from
@@ -23,15 +40,34 @@ type Aes2Htm struct {
 }
 
 // NewAes2Htm creates a new Aes2Htm struct
-func NewAes2Htm(w io.Writer) *Aes2Htm {
+func NewAes2Htm(w io.Writer) (*Aes2Htm, error) {
+	if w == nil {
+		return nil, errors.New("Invalid writer")
+	}
 	ah := &Aes2Htm{}
 	ah.w = w
 	ah.out = func(s string) {
-		ah.w.Write([]byte(s))
+		_, _ = ah.w.Write([]byte(s))
 	}
 	ah.st.Init()
 	ah.stb.Init()
-	return ah
+	return ah, nil
+}
+
+func (ah *Aes2Htm) WriteHTML(reader io.Reader) error {
+	if _, err := io.WriteString(ah.w, HtmlBegin); err != nil {
+		return err
+	}
+
+	if err := ah.Input(reader); err != nil {
+		return err
+	}
+
+	if _, err := io.WriteString(ah.w, HtmlEnd); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // inputPlain consumes plain utf8 characteres
@@ -49,7 +85,8 @@ func (o *Aes2Htm) inputPlain(c byte) error {
 		return nil
 	}
 
-	o.br.UnreadByte()
+	_ = o.br.UnreadByte()
+
 	r, s, er := o.br.ReadRune()
 	if r == utf8.RuneError || s < 1 || er != nil {
 		return errors.New("invalid rune")
@@ -96,7 +133,7 @@ func (o *Aes2Htm) handleCSI() error {
 		} else if c == 'm' {
 			if hasNum {
 				ns = append(ns, n)
-				hasNum = false
+				// hasNum = false
 			}
 			if len(ns) == 0 {
 				ns = append(ns, 0)
@@ -114,6 +151,8 @@ func (o *Aes2Htm) handleCSI() error {
 					st.underline = true
 				} else if n == 5 || n == 6 {
 					st.blink = true
+				} else if n == 7 {
+					// skip
 				} else if 30 <= n && n <= 37 {
 					st.fgcolor.SetIndex(n - 30)
 				} else if n == 39 {
@@ -192,8 +231,8 @@ func (o *Aes2Htm) handleCSI() error {
 		// re-open attribute output
 		if !st.Empty() {
 			o.out("<span")
-			st.WriteStyles(o.w, &o.stb)
-			st.WriteClasses(o.w, &o.stb)
+			_ = st.WriteStyles(o.w, &o.stb)
+			_ = st.WriteClasses(o.w, &o.stb)
 			o.out(">")
 			o.openTags++
 		}
