@@ -5,13 +5,13 @@ import (
 	"log"
 	"os"
 
-	"github.com/romiras/aes2htm/pkg"
+	"github.com/romiras/aes2htm/pkg/converter"
 )
 
 func main() {
 	tohtml := len(os.Args) == 2 && os.Args[1] == "--html"
 	if tohtml {
-		ah, err := pkg.NewAes2Htm(os.Stdout)
+		ah, err := converter.NewAes2Htm(os.Stdout)
 		if err != nil {
 			log.Fatalln(err)
 		}

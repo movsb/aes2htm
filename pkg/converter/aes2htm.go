@@ -1,6 +1,6 @@
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 
-package pkg
+package converter
 
 import (
 	"bufio"
